@@ -947,34 +947,38 @@ class ShareManager(manager.SchedulerDependentManager):
     @utils.require_driver_initialized
     def delete_share_instance(self, context, share_instance_id):
         """Delete a share instance."""
-        context = context.elevated()
-        share_instance = self._get_share_instance(context, share_instance_id)
-        share = self.db.share_get(context, share_instance['share_id'])
-        share_server = self._get_share_server(context, share_instance)
-
-        try:
-            self._remove_share_access_rules(context, share, share_instance,
-                                            share_server)
-            self.driver.delete_share(context, share_instance,
-                                     share_server=share_server)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                self.db.share_instance_update(
-                    context,
-                    share_instance_id,
-                    {'status': constants.STATUS_ERROR_DELETING})
-
-        self.db.share_instance_delete(context, share_instance_id)
-        LOG.info(_LI("Share instance %s: deleted successfully."),
-                 share_instance_id)
-
-        if CONF.delete_share_server_with_last_share:
+        @utils.synchronized('share_%s' % share_instance_id)
+        def _inner_delete(context):
+            context = context.elevated()
+            share_instance = self._get_share_instance(
+                context, share_instance_id)
+            share = self.db.share_get(context, share_instance['share_id'])
             share_server = self._get_share_server(context, share_instance)
-            if share_server and len(share_server.share_instances) == 0:
-                LOG.debug("Scheduled deletion of share-server "
-                          "with id '%s' automatically by "
-                          "deletion of last share.", share_server['id'])
-                self.delete_share_server(context, share_server)
+
+            try:
+                self._remove_share_access_rules(context, share, share_instance,
+                                                share_server)
+                self.driver.delete_share(context, share_instance,
+                                         share_server=share_server)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    self.db.share_instance_update(
+                        context,
+                        share_instance_id,
+                        {'status': constants.STATUS_ERROR_DELETING})
+
+            self.db.share_instance_delete(context, share_instance_id)
+            LOG.info(_LI("Share instance %s: deleted successfully."),
+                     share_instance_id)
+
+            if CONF.delete_share_server_with_last_share:
+                share_server = self._get_share_server(context, share_instance)
+                if share_server and len(share_server.share_instances) == 0:
+                    LOG.debug("Scheduled deletion of share-server "
+                              "with id '%s' automatically by "
+                              "deletion of last share.", share_server['id'])
+                    self.delete_share_server(context, share_server)
+        return _inner_delete(context)
 
     @periodic_task.periodic_task(spacing=600)
     @utils.require_driver_initialized
@@ -1040,47 +1044,51 @@ class ShareManager(manager.SchedulerDependentManager):
     @utils.require_driver_initialized
     def delete_snapshot(self, context, snapshot_id):
         """Delete share snapshot."""
-        context = context.elevated()
-        snapshot_ref = self.db.share_snapshot_get(context, snapshot_id)
+        @utils.synchronized('snapshot_%s' % snapshot_id)
+        def _inner_delete(context):
+            context = context.elevated()
+            snapshot_ref = self.db.share_snapshot_get(context, snapshot_id)
 
-        share_server = self._get_share_server(context,
-                                              snapshot_ref['share'])
-        snapshot_instance = self.db.share_snapshot_instance_get(
-            context, snapshot_ref.instance['id'], with_share_data=True
-        )
-        snapshot_instance_id = snapshot_instance['id']
+            share_server = self._get_share_server(context,
+                                                  snapshot_ref['share'])
+            snapshot_instance = self.db.share_snapshot_instance_get(
+                context, snapshot_ref.instance['id'], with_share_data=True
+            )
+            snapshot_instance_id = snapshot_instance['id']
 
-        if context.project_id != snapshot_ref['project_id']:
-            project_id = snapshot_ref['project_id']
-        else:
-            project_id = context.project_id
+            if context.project_id != snapshot_ref['project_id']:
+                project_id = snapshot_ref['project_id']
+            else:
+                project_id = context.project_id
 
-        try:
-            self.driver.delete_snapshot(context, snapshot_instance,
-                                        share_server=share_server)
-        except exception.ShareSnapshotIsBusy:
-            self.db.share_snapshot_instance_update(
-                context,
-                snapshot_instance_id,
-                {'status': constants.STATUS_AVAILABLE})
-        except Exception:
-            with excutils.save_and_reraise_exception():
+            try:
+                self.driver.delete_snapshot(context, snapshot_instance,
+                                            share_server=share_server)
+            except exception.ShareSnapshotIsBusy:
                 self.db.share_snapshot_instance_update(
                     context,
                     snapshot_instance_id,
-                    {'status': constants.STATUS_ERROR_DELETING})
-        else:
-            self.db.share_snapshot_destroy(context, snapshot_id)
-            try:
-                reservations = QUOTAS.reserve(
-                    context, project_id=project_id, snapshots=-1,
-                    snapshot_gigabytes=-snapshot_ref['size'])
+                    {'status': constants.STATUS_AVAILABLE})
             except Exception:
-                reservations = None
-                LOG.exception(_LE("Failed to update usages deleting snapshot"))
+                with excutils.save_and_reraise_exception():
+                    self.db.share_snapshot_instance_update(
+                        context,
+                        snapshot_instance_id,
+                        {'status': constants.STATUS_ERROR_DELETING})
+            else:
+                self.db.share_snapshot_destroy(context, snapshot_id)
+                try:
+                    reservations = QUOTAS.reserve(
+                        context, project_id=project_id, snapshots=-1,
+                        snapshot_gigabytes=-snapshot_ref['size'])
+                except Exception:
+                    reservations = None
+                    LOG.exception(
+                        _LE("Failed to update usages deleting snapshot"))
 
-            if reservations:
-                QUOTAS.commit(context, reservations, project_id=project_id)
+                if reservations:
+                    QUOTAS.commit(context, reservations, project_id=project_id)
+        return _inner_delete(context)
 
     @add_hooks
     @utils.require_driver_initialized
