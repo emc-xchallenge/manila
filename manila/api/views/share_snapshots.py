@@ -14,6 +14,7 @@
 #    under the License.
 
 from manila.api import common
+from manila.common import constants
 
 
 class ViewBuilder(common.ViewBuilder):
@@ -41,13 +42,20 @@ class ViewBuilder(common.ViewBuilder):
 
     def detail(self, request, snapshot):
         """Detailed view of a single share snapshot."""
+
+        """if snapshot status cannot be queried"""
+        """its instance should be deleted"""
+        snapshot_status = snapshot.get('status')
+        if snapshot_status is None:
+            snapshot_status = constants.STATUS_DELETING
+
         return {
             'snapshot': {
                 'id': snapshot.get('id'),
                 'share_id': snapshot.get('share_id'),
                 'share_size': snapshot.get('share_size'),
                 'created_at': snapshot.get('created_at'),
-                'status': snapshot.get('status'),
+                'status': snapshot_status,
                 'name': snapshot.get('display_name'),
                 'description': snapshot.get('display_description'),
                 'size': snapshot.get('size'),

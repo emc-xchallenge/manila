@@ -11,6 +11,7 @@
 #    under the License.
 
 from manila.api import common
+from manila.common import constants
 
 
 class ViewBuilder(common.ViewBuilder):
@@ -26,13 +27,19 @@ class ViewBuilder(common.ViewBuilder):
         """Detailed view of a single share instance."""
         export_locations = [e['path'] for e in share_instance.export_locations]
 
+        """if share instance status cannot be queried"""
+        """its instance should be deleted"""
+        share_instance_status = share_instance.get('status')
+        if share_instance_status is None:
+            share_instance_status = constants.STATUS_DELETING
+
         instance_dict = {
             'id': share_instance.get('id'),
             'share_id': share_instance.get('share_id'),
             'availability_zone': share_instance.get('availability_zone'),
             'created_at': share_instance.get('created_at'),
             'host': share_instance.get('host'),
-            'status': share_instance.get('status'),
+            'status': share_instance_status,
             'share_network_id': share_instance.get('share_network_id'),
             'share_server_id': share_instance.get('share_server_id'),
             'export_location': share_instance.get('export_location'),
