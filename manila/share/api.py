@@ -218,6 +218,7 @@ class API(base.Base):
                    'user_id': context.user_id,
                    'project_id': context.project_id,
                    'snapshot_id': snapshot_id,
+                   'snapshot_count': 0,
                    'snapshot_support': snapshot_support,
                    'metadata': metadata,
                    'display_name': name,
@@ -267,7 +268,8 @@ class API(base.Base):
         # TODO(u_glide): Add here validation that provided share network
         # doesn't conflict with provided availability_zone when Neutron
         # will have AZ support.
-
+        #import pdb;
+        #pdb.set_trace();
         share_instance = self.db.share_instance_create(
             context, share['id'],
             {
@@ -276,6 +278,7 @@ class API(base.Base):
                 'scheduled_at': timeutils.utcnow(),
                 'host': host if host else '',
                 'availability_zone_id': availability_zone_id,
+                'snapshot_count':0,
             }
         )
 
@@ -447,6 +450,9 @@ class API(base.Base):
         )
 
         self.share_rpcapi.delete_share_instance(context, share_instance)
+
+        #import pdb;
+        #pdb.set_trace();
 
         # NOTE(u_glide): 'updated_at' timestamp is used to track last usage of
         # share server. This is required for automatic share servers cleanup

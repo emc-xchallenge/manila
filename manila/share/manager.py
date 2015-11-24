@@ -1011,7 +1011,9 @@ class ShareManager(manager.SchedulerDependentManager):
             context, snapshot_ref.instance['id'], with_share_data=True
         )
         snapshot_instance_id = snapshot_instance['id']
-
+        
+        share_instance = self.db.share_get(context, share_id)
+        snapshotCount = share_instance['snapshot_count']
         try:
             model_update = self.driver.create_snapshot(
                 context, snapshot_instance, share_server=share_server)
@@ -1034,6 +1036,10 @@ class ShareManager(manager.SchedulerDependentManager):
             {'status': constants.STATUS_AVAILABLE,
              'progress': '100%'}
         )
+
+        self.db.share_update(
+            context, share_id, {'snapshot_count':snapshotCount+1}
+        )
         return snapshot_id
 
     @add_hooks
@@ -1049,6 +1055,9 @@ class ShareManager(manager.SchedulerDependentManager):
             context, snapshot_ref.instance['id'], with_share_data=True
         )
         snapshot_instance_id = snapshot_instance['id']
+        share_id = snapshot_instance['share']['share_id'];
+        share_instance = self.db.share_get(context, share_id); 
+        snapshotCount = share_instance['snapshot_count']
 
         if context.project_id != snapshot_ref['project_id']:
             project_id = snapshot_ref['project_id']
@@ -1058,6 +1067,11 @@ class ShareManager(manager.SchedulerDependentManager):
         try:
             self.driver.delete_snapshot(context, snapshot_instance,
                                         share_server=share_server)
+            if snapshotCount is not None:
+                self.db.share_update(
+                    context, share_id, {'snapshot_count':snapshotCount-1}
+                )
+
         except exception.ShareSnapshotIsBusy:
             self.db.share_snapshot_instance_update(
                 context,
@@ -1071,6 +1085,10 @@ class ShareManager(manager.SchedulerDependentManager):
                     {'status': constants.STATUS_ERROR_DELETING})
         else:
             self.db.share_snapshot_destroy(context, snapshot_id)
+            if snapshotCount is not None:
+                self.db.share_update(
+                    context, share_id, {'snapshot_count':snapshotCount-1}
+                )
             try:
                 reservations = QUOTAS.reserve(
                     context, project_id=project_id, snapshots=-1,
@@ -1081,6 +1099,7 @@ class ShareManager(manager.SchedulerDependentManager):
 
             if reservations:
                 QUOTAS.commit(context, reservations, project_id=project_id)
+        
 
     @add_hooks
     @utils.require_driver_initialized

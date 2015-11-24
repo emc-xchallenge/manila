@@ -264,6 +264,7 @@ class Share(BASE, ManilaBase):
     display_description = Column(String(255))
     snapshot_id = Column(String(36))
     snapshot_support = Column(Boolean, default=True)
+    snapshot_count = Column(Integer)
     share_proto = Column(String(255))
     share_type_id = Column(String(36), ForeignKey('share_types.id'),
                            nullable=True)
@@ -300,7 +301,7 @@ class ShareInstance(BASE, ManilaBase):
     _extra_keys = ['name', 'export_location', 'availability_zone']
     _proxified_properties = ('user_id', 'project_id', 'size',
                              'display_name', 'display_description',
-                             'snapshot_id', 'share_proto', 'share_type_id',
+                             'snapshot_id', 'snapshot_count','share_proto', 'share_type_id',
                              'is_public', 'consistency_group_id',
                              'source_cgsnapshot_member_id')
 
