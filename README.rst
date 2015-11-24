@@ -25,3 +25,4 @@ Python client
 -------------
 
 https://github.com/openstack/python-manilaclient.git
+
