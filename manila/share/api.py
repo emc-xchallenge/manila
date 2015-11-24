@@ -701,6 +701,13 @@ class API(base.Base):
             shares = results
         return shares
 
+   def has_snapshots(self,context,share):
+        snaps = self.db.share_snapshot_get_all_for_share(context, share['id'])
+        if snaps:
+            return TRUE
+        else:
+            return FALSE
+
     def get_snapshot(self, context, snapshot_id):
         policy.check_policy(context, 'share', 'get_snapshot')
         rv = self.db.share_snapshot_get(context, snapshot_id)
