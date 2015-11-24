@@ -955,6 +955,10 @@ class ShareManager(manager.SchedulerDependentManager):
         try:
             self._remove_share_access_rules(context, share, share_instance,
                                             share_server)
+            self.db.share_instance_update(
+                context,
+                share_instance_id,
+                {'status': constants.STATUS_DELETING})
             self.driver.delete_share(context, share_instance,
                                      share_server=share_server)
         except Exception:
@@ -1056,6 +1060,10 @@ class ShareManager(manager.SchedulerDependentManager):
             project_id = context.project_id
 
         try:
+            self.db.share_snapshot_instance_update(
+                context,
+                snapshot_instance_id,
+                {'status': constants.STATUS_DELETING})
             self.driver.delete_snapshot(context, snapshot_instance,
                                         share_server=share_server)
         except exception.ShareSnapshotIsBusy:

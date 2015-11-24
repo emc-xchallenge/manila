@@ -482,6 +482,19 @@ class ShareManagerTestCase(test.TestCase):
         self.assertTrue(len(shr['export_location']) > 0)
         self.assertEqual(2, len(shr['export_locations']))
 
+    def test_share_status_without_share_instance(self):
+        share = db_utils.create_share()
+        share_id = share['id']
+        self.assertEqual(constants.STATUS_CREATING, share['status'])
+
+        self.share_manager.create_share_instance(
+            self.context, share.instance['id'])
+        share = db.share_get(self.context, share_id)
+        self.assertEqual(constants.STATUS_AVAILABLE, share['status'])
+
+        share.instances = []
+        self.assertEqual(constants.STATUS_DELETING, share['status'])
+
     def test_create_delete_share_snapshot(self):
         """Test share's snapshot can be created and deleted."""
 
@@ -549,6 +562,12 @@ class ShareManagerTestCase(test.TestCase):
             utils.IsAMatcher(context.RequestContext),
             utils.IsAMatcher(models.ShareSnapshotInstance),
             share_server=None)
+
+    def test_share_snapshot_status_without_instance(self):
+        share = db_utils.create_share()
+        snapshot = db_utils.create_snapshot(share_id=share['id'])
+        snapshot.instances = []
+        self.assertEqual(constants.STATUS_DELETING, snapshot['status'])
 
     def test_delete_share_instance_if_busy(self):
         """Test snapshot could not be deleted if busy."""

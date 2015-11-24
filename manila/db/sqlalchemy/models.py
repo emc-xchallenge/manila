@@ -231,7 +231,12 @@ class Share(BASE, ManilaBase):
             LOG.warning(msg)
 
         if item in proxified_properties:
-            return getattr(self.instance, item, None)
+            if self.instance:
+                ret = getattr(self.instance, item, None)
+            else:
+                # instance does not exist, deleting
+                ret = constants.STATUS_DELETING
+            return ret
 
         raise AttributeError(item)
 
@@ -523,7 +528,11 @@ class ShareSnapshot(BASE, ManilaBase):
     @property
     def status(self):
         if self.instance:
-            return self.instance.status
+            ret = self.instance.status
+        else:
+            # instance does not exist, deleting
+            ret = constants.STATUS_DELETING
+        return ret
 
     @property
     def progress(self):
