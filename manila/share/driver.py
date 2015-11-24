@@ -203,6 +203,32 @@ class GaneshaMixin(object):
             self.configuration.append_config_values(ganesha_opts)
 
 
+def locked_snapshot_operation(f):
+    """Lock decorator for snapshot operations.
+
+    Takes a named lock prior to executing the operation. The lock is named
+    with the operation executed and the id of the snapshot. This lock can
+    then be used by other operations to avoid operation conflicts on
+    shared snapshots.
+
+    Example use:
+
+    If a snapshot operation uses this decorator, it will block until the
+    named lock is free. This is used to protect concurrent operations on
+    the same snapshot e.g. delete SnapA while create volume VolA from
+    SnapA is in progress.
+
+    :param f: function to synchronize
+    """
+    def decorator(inst, context, snapshot, **kwargs):
+        @utils.synchronized("%s-%s" % (snapshot.id, f.__name__),
+                            external=True)
+        def wrapped_function(*_args, **_kwargs):
+            return f(*_args, **_kwargs)
+        return wrapped_function(inst, context, snapshot, **kwargs)
+    return decorator
+
+
 class ShareDriver(object):
     """Class defines interface of NAS driver."""
 
@@ -555,6 +581,7 @@ class ShareDriver(object):
         """Is called to remove share."""
         raise NotImplementedError()
 
+    @locked_snapshot_operation
     def delete_snapshot(self, context, snapshot, share_server=None):
         """Is called to remove snapshot.
 
