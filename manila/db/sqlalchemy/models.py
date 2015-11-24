@@ -220,6 +220,14 @@ class Share(BASE, ManilaBase):
 
         return all_export_locations
 
+    @property
+    def has_snapshots(self):
+        """check whether this share has snapshots
+
+        :return: true if snaps available, otherwise false
+        """
+        return len(self.snapshots) > 0
+
     def __getattr__(self, item):
         deprecated_properties = ('host', 'share_server_id', 'share_network_id',
                                  'availability_zone')

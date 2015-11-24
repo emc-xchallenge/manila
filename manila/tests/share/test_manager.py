@@ -446,6 +446,18 @@ class ShareManagerTestCase(test.TestCase):
         self.assertEqual(constants.STATUS_AVAILABLE, shr['status'])
         self.assertEqual(server['id'], shr['share_server_id'])
 
+    def test_has_snapshot(self):
+        share = db_utils.create_share()
+        self.assertEqual(0, len(share.snapshots))
+        self.assertEqual(False, share.has_snapshots)
+
+        share_id = share['id']
+        db_utils.create_snapshot(share_id=share_id)
+        db_utils.create_snapshot(share_id=share_id)
+        share = db.share_get(self.context, share_id)
+        self.assertEqual(2, len(share.snapshots))
+        self.assertEqual(True, share.has_snapshots)
+
     def test_create_share_instance_from_snapshot_with_server_not_found(self):
         """Test creation from snapshot fails if server not found."""
         parent_share = db_utils.create_share(share_network_id='net-id',
