@@ -132,6 +132,26 @@ def add_hooks(f):
 
     return wrapped
 
+def locked_share_operation(f):
+    """Lock decorator for share operations.
+
+    Takes a named lock prior to executing the operation. The lock is named with
+    the operation executed and the id of the share. This lock can then be used
+    by other operations to avoid operation conflicts on shared share.
+
+    Example use:
+
+    If a share operation uses this decorator, it will block until the named
+    lock is free. This is used to protect concurrent operations on the same
+    share e.g. delete ShareA while create snapshot from ShareA is in progress.
+    """
+    def lso_inner1(inst, context, share_instance_id, **kwargs):
+        @utils.synchronized("%s-%s" % (share_instance_id, f.__name__), external=True)
+        def lso_inner2(*_args, **_kwargs):
+            return f(*_args, **_kwargs)
+        return lso_inner2(inst, context, share_instance_id, **kwargs)
+    return lso_inner1
+
 
 class ShareManager(manager.SchedulerDependentManager):
     """Manages NAS storages."""
@@ -945,6 +965,7 @@ class ShareManager(manager.SchedulerDependentManager):
 
     @add_hooks
     @utils.require_driver_initialized
+    @locked_share_operation
     def delete_share_instance(self, context, share_instance_id):
         """Delete a share instance."""
         context = context.elevated()
