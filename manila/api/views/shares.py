@@ -24,6 +24,7 @@ class ViewBuilder(common.ViewBuilder):
         "add_snapshot_support_field",
         "add_consistency_group_fields",
         "add_task_state_field",
+        "add_snapshots_list_field",
         "modify_share_type_field",
     ]
 
@@ -103,6 +104,10 @@ class ViewBuilder(common.ViewBuilder):
     @common.ViewBuilder.versioned_method("2.5")
     def add_task_state_field(self, share_dict, share):
         share_dict['task_state'] = share.get('task_state')
+
+    @common.ViewBuilder.versioned_method("2.7")
+    def add_snapshots_list_field(self, share_dict, share):
+        share_dict['snapshots_list'] = share.get('snapshots_list')
 
     @common.ViewBuilder.versioned_method("2.6")
     def modify_share_type_field(self, share_dict, share):

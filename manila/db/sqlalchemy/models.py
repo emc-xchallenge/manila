@@ -207,6 +207,11 @@ class Share(BASE, ManilaBase):
         if self.task_state in constants.BUSY_TASK_STATES:
             return True
         return False
+    @property
+    def snapshots_list(self):
+        # bug 1437009: instead of "has_snapshots", we provided actual the list of snapshots of this share
+        if len(self.snapshots) > 0:
+            return ";".join([s.id for s in self.snapshots ])
 
     @property
     def export_locations(self):
@@ -292,6 +297,13 @@ class Share(BASE, ManilaBase):
         primaryjoin='and_('
                     'Share.share_type_id == ShareTypes.id, '
                     'ShareTypes.deleted == "False")')
+    snapshots = orm.relationship(
+        "ShareSnapshot",
+        lazy='immediate',
+        primaryjoin=(
+            'and_('
+            'Share.id == ShareSnapshot.share_id, '
+            'ShareSnapshot.deleted == "False")')
 
 
 class ShareInstance(BASE, ManilaBase):
