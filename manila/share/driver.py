@@ -165,6 +165,26 @@ CONF.register_opts(share_opts)
 CONF.register_opts(ssh_opts)
 CONF.register_opts(ganesha_opts)
 
+def locked_snapshot_operation(f):
+    """Lock decorator for snapshot operations.
+
+    Takes a named lock prior to executing the operation. The lock is named with
+    the operation executed and the id of the snapshot. This lock can then be
+    used by other operations to avoid operation conflicts on shared snapshots.
+
+    Example use:
+
+    If a snapshot operation uses this decorator, it will block until the named
+    lock is free. This is used to protect concurrent operations on the same
+    snapshot.
+    """
+    def lso_inner1(inst, context, snapshot, **kwargs):
+        @utils.synchronized("snapshot-%s" % f.__name__, external=True)
+        def lso_inner2(*_args, **_kwargs):
+            return f(*_args, **_kwargs)
+        return lso_inner2(inst, context, snapshot, **kwargs)
+    return lso_inner1
+
 
 class ExecuteMixin(object):
     """Provides an executable functionality to a driver class."""
@@ -555,6 +575,7 @@ class ShareDriver(object):
         """Is called to remove share."""
         raise NotImplementedError()
 
+    @locked_snapshot_operation
     def delete_snapshot(self, context, snapshot, share_server=None):
         """Is called to remove snapshot.
 
